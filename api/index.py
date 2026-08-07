@@ -264,13 +264,13 @@ def vapi_webhook():
                     if isinstance(args, dict):
                         data = args
 
-        postal_code = data.get("postal_code")
-        address = data.get("address")
-        resource_type = data.get("resource_type")
-        complaint_type = data.get("complaint_type")
-        description = data.get("description")
-        urgency_status = data.get("urgency_status") or data.get("severity") or "medium"
-        phone_number = data.get("phone_number", "")
+        postal_code    = str(data.get("postal_code") or "").upper()
+        address        = str(data.get("address") or "").upper()
+        resource_type  = str(data.get("resource_type") or "").upper()
+        complaint_type = str(data.get("complaint_type") or "").upper()
+        description    = str(data.get("description") or "").upper()
+        urgency_status = str(data.get("urgency_status") or data.get("severity") or "MEDIUM").upper()
+        phone_number   = str(data.get("phone_number") or "")
 
         required_fields = {
             "postal_code": postal_code,
