@@ -130,6 +130,7 @@ TWIML_APP_SID = os.getenv("TWILIO_TWIML_APP_SID")
 # Routes
 # -----------------------------
 @app.route("/")
+@app.route("/api/index")
 def index():
     return render_template("index.html")
 
@@ -359,6 +360,19 @@ def vapi_webhook():
             "success": False,
             "message": str(e)
         }), 500
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    """Debug 404 handler — shows what path Flask actually received."""
+    return jsonify({
+        "error": "404 Not Found",
+        "flask_received_path": request.environ.get('PATH_INFO'),
+        "request_url": request.url,
+        "method": request.method,
+        "x_matched_path": request.headers.get('x-matched-path', 'NOT SET'),
+        "registered_routes": [str(rule) for rule in app.url_map.iter_rules()],
+    }), 404
 
 
 if __name__ == "__main__":
