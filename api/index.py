@@ -101,6 +101,13 @@ def skip_ngrok_warning(response):
     return response
 
 
+@app.before_request
+def strip_path_trailing_whitespace():
+    """Strip %0A / trailing newlines from PATH_INFO before routing.
+    Vercel can encode a trailing newline into the path which breaks route matching."""
+    request.environ['PATH_INFO'] = request.environ.get('PATH_INFO', '').rstrip()
+
+
 # -----------------------------
 # Twilio Config
 # -----------------------------
