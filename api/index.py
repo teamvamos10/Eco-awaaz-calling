@@ -24,22 +24,6 @@ app = Flask(
 )
 
 
-# Vercel rewrites all paths to /api/index, but sets x-matched-path
-# to the original URL. This middleware restores the original path
-# so Flask routing works correctly on Vercel.
-class VercelPathMiddleware:
-    def __init__(self, wsgi_app):
-        self.wsgi_app = wsgi_app
-
-    def __call__(self, environ, start_response):
-        matched_path = environ.get('HTTP_X_MATCHED_PATH')
-        if matched_path:
-            environ['PATH_INFO'] = matched_path
-        return self.wsgi_app(environ, start_response)
-
-app.wsgi_app = VercelPathMiddleware(app.wsgi_app)
-
-
 # -----------------------------
 # Database Connection (Neon Postgres)
 # -----------------------------
