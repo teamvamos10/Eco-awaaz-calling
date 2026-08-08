@@ -1251,6 +1251,9 @@
 
                 vapiInstance.on("error", (err) => {
                     console.error("VAPI FULL ERROR:", err);
+                    try {
+                        console.warn("VAPI ERROR DETAILS:\n", JSON.stringify(err, null, 2));
+                    } catch(e){}
                     let rawStr = "";
                     try { rawStr = JSON.stringify(err); } catch(e) { rawStr = String(err); }
                     
