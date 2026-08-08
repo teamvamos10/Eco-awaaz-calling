@@ -1211,7 +1211,11 @@
                     try { vapi.stop(); } catch(e){}
                 }
 
-                vapi = new VapiClass(publicKey);
+                // Build the same-origin proxy URL so all Vapi SDK requests
+                // go through our backend, avoiding CORS issues with api.vapi.ai
+                const proxyBaseUrl = window.location.origin + "/api/vapi-proxy";
+
+                vapi = new VapiClass(publicKey, proxyBaseUrl);
                 currentKey = publicKey;
                 wireEvents(vapi);
                 return vapi;

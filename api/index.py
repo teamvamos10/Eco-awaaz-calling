@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import os
 import json
 import traceback
+import requests as http_requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -96,8 +97,14 @@ def required_env(*names):
 
 
 @app.after_request
-def skip_ngrok_warning(response):
+def add_cors_and_ngrok_headers(response):
     response.headers["ngrok-skip-browser-warning"] = "true"
+    # CORS headers so the Vapi Web SDK proxy and API calls work from any origin
+    origin = request.headers.get("Origin", "*")
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
 
 
@@ -136,6 +143,51 @@ def vapi_config():
         "publicKey": public_key,
         "assistantId": assistant_id,
     })
+
+
+@app.route("/api/vapi-proxy", defaults={"subpath": ""}, methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@app.route("/api/vapi-proxy/<path:subpath>", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+def vapi_proxy(subpath):
+    """Reverse-proxy requests to https://api.vapi.ai so the browser never
+    hits a CORS wall.  The Vapi Web SDK accepts a second constructor arg
+    that points it here instead of directly to api.vapi.ai."""
+
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        return "", 204
+
+    target_url = f"https://api.vapi.ai/{subpath}"
+    if request.query_string:
+        target_url += f"?{request.query_string.decode()}"
+
+    # Forward headers (keep Authorization so the SDK's public-key auth works)
+    fwd_headers = {}
+    for key in ("Authorization", "Content-Type"):
+        val = request.headers.get(key)
+        if val:
+            fwd_headers[key] = val
+
+    try:
+        resp = http_requests.request(
+            method=request.method,
+            url=target_url,
+            headers=fwd_headers,
+            data=request.get_data(),
+            timeout=30,
+        )
+
+        # Build Flask response from upstream
+        excluded_headers = {"content-encoding", "content-length", "transfer-encoding", "connection"}
+        headers = [
+            (k, v) for k, v in resp.raw.headers.items()
+            if k.lower() not in excluded_headers
+        ]
+
+        return (resp.content, resp.status_code, headers)
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": f"Proxy error: {e}"}), 502
 
 
 @app.route("/health")
