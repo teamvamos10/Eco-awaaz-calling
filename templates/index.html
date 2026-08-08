@@ -1250,28 +1250,24 @@
                 });
 
                 vapiInstance.on("error", (err) => {
-                    console.error("Vapi error details:", err);
+                    console.error("VAPI FULL ERROR:", err);
+                    let rawStr = "";
+                    try { rawStr = JSON.stringify(err); } catch(e) { rawStr = String(err); }
+                    
                     let msg = "";
-                    if (err) {
-                        let eObj = (err.error && Object.keys(err.error).length > 0) ? err.error : err;
-                        if (typeof eObj === "string") {
-                            msg = eObj;
-                        } else if (Array.isArray(eObj.message)) {
-                            msg = eObj.message.join(", ");
-                        } else if (typeof eObj.message === "string") {
-                            msg = eObj.message;
-                        } else if (typeof eObj.error === "string") {
-                            msg = eObj.error;
-                        } else if (typeof err.type === "string") {
-                            msg = "Vapi: " + err.type + (err.stage ? " (" + err.stage + ")" : "");
-                        } else {
-                            try { msg = JSON.stringify(eObj); } catch(e) { msg = String(eObj); }
+                    if (err && typeof err === "object") {
+                        if (err.error) {
+                            if (typeof err.error === "string") msg = err.error;
+                            else if (Array.isArray(err.error.message)) msg = err.error.message.join(", ");
+                            else if (typeof err.error.message === "string") msg = err.error.message;
+                            else try { msg = JSON.stringify(err.error); } catch(e){}
                         }
-                    } else {
-                        msg = "Call error occurred.";
+                        if (!msg && err.message) msg = typeof err.message === "string" ? err.message : JSON.stringify(err.message);
+                        if (!msg && err.type) msg = err.type;
                     }
+                    if (!msg) msg = rawStr;
 
-                    showError("⚠️ " + msg);
+                    showError("⚠️ Vapi Call Failed: " + msg);
                     resetUI();
                 });
             }
