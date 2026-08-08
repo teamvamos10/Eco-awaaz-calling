@@ -1252,28 +1252,26 @@
                 vapiInstance.on("error", (err) => {
                     console.error("Vapi error details:", err);
                     let msg = "";
-                    if (typeof err === "string") {
-                        msg = err;
-                    } else if (err && typeof err === "object") {
-                        if (typeof err.message === "string") {
-                            msg = err.message;
-                        } else if (err.error && typeof err.error.message === "string") {
-                            msg = err.error.message;
+                    if (err) {
+                        let eObj = (err.error && Object.keys(err.error).length > 0) ? err.error : err;
+                        if (typeof eObj === "string") {
+                            msg = eObj;
+                        } else if (Array.isArray(eObj.message)) {
+                            msg = eObj.message.join(", ");
+                        } else if (typeof eObj.message === "string") {
+                            msg = eObj.message;
+                        } else if (typeof eObj.error === "string") {
+                            msg = eObj.error;
                         } else if (typeof err.type === "string") {
-                            msg = "Vapi error: " + err.type;
+                            msg = "Vapi: " + err.type + (err.stage ? " (" + err.stage + ")" : "");
                         } else {
-                            try { msg = JSON.stringify(err); } catch(e) { msg = String(err); }
+                            try { msg = JSON.stringify(eObj); } catch(e) { msg = String(eObj); }
                         }
                     } else {
-                        msg = String(err || "Call error occurred.");
+                        msg = "Call error occurred.";
                     }
 
-                    const lowerMsg = msg.toLowerCase();
-                    if (lowerMsg.includes("cors") || lowerMsg.includes("failed to fetch") || lowerMsg.includes("err_failed") || lowerMsg.includes("unauthorized") || lowerMsg.includes("invalid key") || lowerMsg.includes("start-method-error")) {
-                        msg = "🔑 Vapi call connection failed. Please check that VAPI_PUBLIC_KEY and VAPI_ASSISTANT_ID are set correctly in your Vercel Environment Variables and allowed in dashboard.vapi.ai.";
-                        setupCard.classList.remove("hidden");
-                    }
-                    showError(msg);
+                    showError("⚠️ " + msg);
                     resetUI();
                 });
             }
