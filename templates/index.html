@@ -1257,8 +1257,9 @@
                     } else if (err) {
                         msg = err.message || err.errorMsg || (err.error && err.error.message) || JSON.stringify(err);
                     }
-                    if (msg.includes("CORS") || msg.includes("Failed to fetch") || msg.includes("ERR_FAILED")) {
-                        msg = "Vapi connection failed. Please verify your Vapi Public Key and Assistant ID in your Vapi dashboard.";
+                    if (msg.includes("CORS") || msg.includes("Failed to fetch") || msg.includes("ERR_FAILED") || msg.includes("Unauthorized") || msg.includes("Invalid Key")) {
+                        msg = "🔑 Invalid Vapi Public Key. Click the ⚙️ Gear icon in the navbar to enter your valid Vapi Public Key from dashboard.vapi.ai.";
+                        setupCard.classList.remove("hidden");
                     }
                     showError(msg);
                     resetUI();
