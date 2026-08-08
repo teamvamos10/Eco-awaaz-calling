@@ -221,7 +221,7 @@ def vapi_webhook():
         print(json.dumps(data, indent=4))
         print("=" * 70)
 
-        # Handle all Vapi tool payload structures
+        # Handle all Vapi tool & webhook payload structures
         if isinstance(data, dict):
             # Case 1: Wrapped in "query" JSON string
             if "query" in data and isinstance(data["query"], str):
@@ -233,6 +233,8 @@ def vapi_webhook():
             # Case 2: Vapi Server URL Webhook format
             if "message" in data and isinstance(data["message"], dict):
                 msg = data["message"]
+                extracted = None
+
                 # Subcase A: toolCalls array
                 if "toolCalls" in msg and isinstance(msg["toolCalls"], list) and len(msg["toolCalls"]) > 0:
                     tool_call = msg["toolCalls"][0]
@@ -242,7 +244,7 @@ def vapi_webhook():
                             try: args = json.loads(args)
                             except: pass
                         if isinstance(args, dict):
-                            data = args
+                            extracted = args
                 # Subcase B: toolWithToolCallList array
                 elif "toolWithToolCallList" in msg and isinstance(msg["toolWithToolCallList"], list) and len(msg["toolWithToolCallList"]) > 0:
                     tc = msg["toolWithToolCallList"][0].get("toolCall", {})
@@ -252,7 +254,7 @@ def vapi_webhook():
                             try: args = json.loads(args)
                             except: pass
                         if isinstance(args, dict):
-                            data = args
+                            extracted = args
                 # Subcase C: functionCall
                 elif "functionCall" in msg and isinstance(msg["functionCall"], dict):
                     args = msg["functionCall"].get("parameters") or msg["functionCall"].get("arguments")
@@ -260,29 +262,62 @@ def vapi_webhook():
                         try: args = json.loads(args)
                         except: pass
                     if isinstance(args, dict):
-                        data = args
+                        extracted = args
+                # Subcase D: End of call report / structuredData / artifact
+                elif "analysis" in msg and isinstance(msg["analysis"], dict) and "structuredData" in msg["analysis"]:
+                    extracted = msg["analysis"]["structuredData"]
+                elif "artifact" in msg and isinstance(msg["artifact"], dict) and "structuredData" in msg["artifact"]:
+                    extracted = msg["artifact"]["structuredData"]
 
-        postal_code    = str(data.get("postal_code") or "").upper()
-        address        = str(data.get("address") or "").upper()
-        resource_type  = str(data.get("resource_type") or "").upper()
-        complaint_type = str(data.get("complaint_type") or "").upper()
-        description    = str(data.get("description") or "").upper()
-        urgency_status = str(data.get("urgency_status") or data.get("severity") or "MEDIUM").upper()
-        phone_number   = str(data.get("phone_number") or "")
+                if isinstance(extracted, dict):
+                    # Also attach phone number from call if available
+                    customer_phone = msg.get("call", {}).get("customer", {}).get("number") or msg.get("customer", {}).get("number")
+                    if customer_phone and "phone_number" not in extracted:
+                        extracted["phone_number"] = customer_phone
+                    data = extracted
 
-        required_fields = {
-            "postal_code": postal_code,
-            "address": address,
-            "resource_type": resource_type,
-            "complaint_type": complaint_type,
-        }
-        missing_fields = [k for k, v in required_fields.items() if not v]
+        # Extract values with aliases
+        postal_code = (
+            data.get("postal_code") or data.get("pincode") or data.get("pin_code") or 
+            data.get("zip") or data.get("zipcode") or data.get("zip_code") or ""
+        )
+        address = (
+            data.get("address") or data.get("location") or data.get("user_address") or 
+            data.get("place") or ""
+        )
+        resource_type = (
+            data.get("resource_type") or data.get("category") or data.get("department") or 
+            data.get("resource") or "CIVIC"
+        )
+        complaint_type = (
+            data.get("complaint_type") or data.get("complaint") or data.get("issue") or 
+            data.get("title") or "GENERAL_COMPLAINT"
+        )
+        description = (
+            data.get("description") or data.get("details") or data.get("summary") or 
+            data.get("transcript") or ""
+        )
+        urgency_status = (
+            data.get("urgency_status") or data.get("severity") or data.get("urgency") or "MEDIUM"
+        )
+        phone_number = (
+            data.get("phone_number") or data.get("phone") or data.get("caller_phone") or ""
+        )
 
-        if missing_fields:
-            return jsonify({
-                "success": False,
-                "message": f"Missing required field(s): {', '.join(missing_fields)}"
-            }), 400
+        # Upper-case text fields
+        postal_code    = str(postal_code).strip().upper()
+        address        = str(address).strip().upper()
+        resource_type  = str(resource_type).strip().upper()
+        complaint_type = str(complaint_type).strip().upper()
+        description    = str(description).strip().upper()
+        urgency_status = str(urgency_status).strip().upper()
+        phone_number   = str(phone_number).strip()
+
+        # Sensible defaults for missing fields instead of 400 rejection
+        if not postal_code:
+            postal_code = "NOT_PROVIDED"
+        if not address:
+            address = f"PIN {postal_code}" if postal_code != "NOT_PROVIDED" else "LOCATION_NOT_PROVIDED"
 
         two_days_ago = (date.today() - timedelta(days=2)).isoformat()
         today_date = date.today().isoformat()
