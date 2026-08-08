@@ -145,51 +145,6 @@ def vapi_config():
     })
 
 
-@app.route("/api/vapi-proxy", defaults={"subpath": ""}, methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
-@app.route("/api/vapi-proxy/<path:subpath>", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
-def vapi_proxy(subpath):
-    """Reverse-proxy requests to https://api.vapi.ai so the browser never
-    hits a CORS wall.  The Vapi Web SDK accepts a second constructor arg
-    that points it here instead of directly to api.vapi.ai."""
-
-    # Handle CORS preflight
-    if request.method == "OPTIONS":
-        return "", 204
-
-    target_url = f"https://api.vapi.ai/{subpath}"
-    if request.query_string:
-        target_url += f"?{request.query_string.decode()}"
-
-    # Forward headers (keep Authorization so the SDK's public-key auth works)
-    fwd_headers = {}
-    for key in ("Authorization", "Content-Type"):
-        val = request.headers.get(key)
-        if val:
-            fwd_headers[key] = val
-
-    try:
-        resp = http_requests.request(
-            method=request.method,
-            url=target_url,
-            headers=fwd_headers,
-            data=request.get_data(),
-            timeout=30,
-        )
-
-        # Build Flask response from upstream
-        excluded_headers = {"content-encoding", "content-length", "transfer-encoding", "connection"}
-        headers = [
-            (k, v) for k, v in resp.raw.headers.items()
-            if k.lower() not in excluded_headers
-        ]
-
-        return (resp.content, resp.status_code, headers)
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": f"Proxy error: {e}"}), 502
-
-
 @app.route("/health")
 def health():
     try:

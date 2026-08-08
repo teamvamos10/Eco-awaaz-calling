@@ -1211,11 +1211,7 @@
                     try { vapi.stop(); } catch(e){}
                 }
 
-                // Build the same-origin proxy URL so all Vapi SDK requests
-                // go through our backend, avoiding CORS issues with api.vapi.ai
-                const proxyBaseUrl = window.location.origin + "/api/vapi-proxy";
-
-                vapi = new VapiClass(publicKey, proxyBaseUrl);
+                vapi = new VapiClass(publicKey);
                 currentKey = publicKey;
                 wireEvents(vapi);
                 return vapi;
@@ -1254,8 +1250,17 @@
                 });
 
                 vapiInstance.on("error", (err) => {
-                    console.error("Vapi error:", err);
-                    showError((err && (err.message || err.errorMsg)) || "Call error occurred.");
+                    console.error("Vapi error details:", err);
+                    let msg = "Call error occurred.";
+                    if (typeof err === "string") {
+                        msg = err;
+                    } else if (err) {
+                        msg = err.message || err.errorMsg || (err.error && err.error.message) || JSON.stringify(err);
+                    }
+                    if (msg.includes("CORS") || msg.includes("Failed to fetch") || msg.includes("ERR_FAILED")) {
+                        msg = "Vapi connection failed. Please verify your Vapi Public Key and Assistant ID in your Vapi dashboard.";
+                    }
+                    showError(msg);
                     resetUI();
                 });
             }
