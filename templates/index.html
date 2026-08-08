@@ -1251,14 +1251,26 @@
 
                 vapiInstance.on("error", (err) => {
                     console.error("Vapi error details:", err);
-                    let msg = "Call error occurred.";
+                    let msg = "";
                     if (typeof err === "string") {
                         msg = err;
-                    } else if (err) {
-                        msg = err.message || err.errorMsg || (err.error && err.error.message) || JSON.stringify(err);
+                    } else if (err && typeof err === "object") {
+                        if (typeof err.message === "string") {
+                            msg = err.message;
+                        } else if (err.error && typeof err.error.message === "string") {
+                            msg = err.error.message;
+                        } else if (typeof err.type === "string") {
+                            msg = "Vapi error: " + err.type;
+                        } else {
+                            try { msg = JSON.stringify(err); } catch(e) { msg = String(err); }
+                        }
+                    } else {
+                        msg = String(err || "Call error occurred.");
                     }
-                    if (msg.includes("CORS") || msg.includes("Failed to fetch") || msg.includes("ERR_FAILED") || msg.includes("Unauthorized") || msg.includes("Invalid Key")) {
-                        msg = "🔑 Invalid Vapi Public Key. Click the ⚙️ Gear icon in the navbar to enter your valid Vapi Public Key from dashboard.vapi.ai.";
+
+                    const lowerMsg = msg.toLowerCase();
+                    if (lowerMsg.includes("cors") || lowerMsg.includes("failed to fetch") || lowerMsg.includes("err_failed") || lowerMsg.includes("unauthorized") || lowerMsg.includes("invalid key") || lowerMsg.includes("start-method-error")) {
+                        msg = "🔑 Vapi call connection failed. Please check that VAPI_PUBLIC_KEY and VAPI_ASSISTANT_ID are set correctly in your Vercel Environment Variables and allowed in dashboard.vapi.ai.";
                         setupCard.classList.remove("hidden");
                     }
                     showError(msg);
